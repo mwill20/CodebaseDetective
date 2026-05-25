@@ -13,7 +13,7 @@ Each lesson reads the actual source files before writing — all code snippets a
 | Lesson | Title | File(s) | Status | Type |
 |--------|-------|---------|--------|------|
 | 00 | [The Operations Manual: System Overview](Lesson00_System_Overview.md) | `README.md`, `core/__init__.py`, `requirements.txt` | ✅ Complete | Required |
-| 01 | [The Training Engine: attacks/base.py](Lesson01_Training_Engine.md) | `core/attacks/base.py` | 🔲 Planned | Required |
+| 01 | [The Training Engine: attacks/base.py](Lesson01_Training_Engine.md) | `core/attacks/base.py` | ✅ Complete | Required |
 | 02 | [Data Poisoning 101: BadNets](Lesson02_Data_Poisoning.md) | `core/attacks/BadNets.py`, `tests/test_BadNets.py` | 🔲 Planned | Required |
 | 03 | [The Hidden Watermark: Blended Attack](Lesson03_Invisible_Attacks.md) | `core/attacks/Blended.py` | 🔲 Planned | Required |
 | 04 | [Fingerprint in the Distortion: WaNet](Lesson04_Geometric_Attacks.md) | `core/attacks/WaNet.py` | 🔲 Planned | Optional |

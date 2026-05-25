@@ -2,7 +2,7 @@
   <img src="docs/visualization/CodebaseDetective_Logo.png" alt="Codebase Detective Logo" width="400"/>
 </p>
 
-# Codebase Detective — BackdoorBox Analysis
+# Codebase Detective: BackdoorBox Analysis
 
 > Assignment: systematically explore, map, audit, and document an unfamiliar codebase in under 5 hours using Claude Code as the exploration partner.
 

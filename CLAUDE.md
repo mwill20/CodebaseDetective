@@ -1,4 +1,4 @@
-# BackdoorBox — CLAUDE.md
+# BackdoorBox CLAUDE.md
 
 > Project-level instructions for AI assistants working in this directory.
 
@@ -6,7 +6,7 @@
 
 **BackdoorBox** is a Python research toolbox for backdoor attacks and defenses against deep neural networks (DNNs). It implements 15 attack methods and 12 defense methods under a unified framework built on PyTorch.
 
-**This is an ML security research tool — not a production application.** There are no web servers, REST APIs, databases, or authentication systems. The "users" are ML researchers running experiments.
+**This is an ML security research tool, not a production application.** There are no web servers, REST APIs, databases, or authentication systems. The "users" are ML researchers running experiments.
 
 ## Environment
 

@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BackdoorBox — Module Dependency Map</title>
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: #0f1117;
+      color: #e0e0e0;
+      overflow: hidden;
+    }
+    #title {
+      position: absolute;
+      top: 16px; left: 50%;
+      transform: translateX(-50%);
+      font-size: 18px;
+      font-weight: 600;
+      letter-spacing: 0.05em;
+      color: #90caf9;
+      pointer-events: none;
+    }
+    #subtitle {
+      position: absolute;
+      top: 42px; left: 50%;
+      transform: translateX(-50%);
+      font-size: 11px;
+      color: #666;
+      pointer-events: none;
+    }
+    svg { width: 100vw; height: 100vh; }
+    .node circle {
+      stroke-width: 2px;
+      cursor: pointer;
+      transition: r 0.15s;
+    }
+    .node circle:hover { stroke-width: 3.5px; }
+    .node text {
+      font-size: 11px;
+      fill: #ddd;
+      pointer-events: none;
+      text-anchor: middle;
+      dominant-baseline: central;
+    }
+    .link {
+      stroke-opacity: 0.35;
+      fill: none;
+    }
+    .link.dependency { stroke: #546e7a; stroke-dasharray: 4 3; }
+    .link.inheritance { stroke: #81c784; }
+    .link.composition { stroke: #ffb74d; }
+    #legend {
+      position: absolute;
+      bottom: 20px;
+      right: 20px;
+      background: rgba(20,24,36,0.9);
+      border: 1px solid #333;
+      border-radius: 8px;
+      padding: 12px 16px;
+      font-size: 12px;
+    }
+    .legend-item { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+    .legend-dot { width: 12px; height: 12px; border-radius: 50%; }
+    .legend-line { width: 24px; height: 2px; }
+    #tooltip {
+      position: absolute;
+      background: rgba(15,20,35,0.95);
+      border: 1px solid #444;
+      border-radius: 6px;
+      padding: 10px 14px;
+      font-size: 12px;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.15s;
+      max-width: 260px;
+      line-height: 1.6;
+    }
+    #controls {
+      position: absolute;
+      top: 72px;
+      right: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    button {
+      background: #1e2433;
+      color: #90caf9;
+      border: 1px solid #334;
+      border-radius: 5px;
+      padding: 5px 12px;
+      font-size: 11px;
+      cursor: pointer;
+    }
+    button:hover { background: #263040; }
+  </style>
+</head>
+<body>
+<div id="title">BackdoorBox — Interactive Module Map</div>
+<div id="subtitle">Drag nodes · Scroll to zoom · Hover for details</div>
+<div id="controls">
+  <button onclick="resetZoom()">Reset View</button>
+  <button onclick="toggleLabels()">Toggle Labels</button>
+</div>
+<svg id="graph"></svg>
+<div id="tooltip"></div>
+<div id="legend">
+  <div style="font-weight:600;margin-bottom:8px;color:#90caf9">Legend</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#EF5350"></div> Attack Class</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#66BB6A"></div> Defense Class</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#AB47BC"></div> Model</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#FFA726"></div> Utility</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#42A5F5"></div> Entry Point</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#78909C"></div> Dataset</div>
+  <hr style="border-color:#333;margin:8px 0">
+  <div class="legend-item"><div class="legend-line" style="background:#81c784"></div> Inheritance</div>
+  <div class="legend-item"><div class="legend-line" style="background:#ffb74d"></div> Creates/Composes</div>
+  <div class="legend-item"><div class="legend-line" style="background:#546e7a;border-top:1px dashed #546e7a"></div> Imports/Uses</div>
+</div>
+
+<script>
+const nodes = [
+  // Entry points
+  { id: "Attack_BadNets.py",   group: "entry",   size: 16, info: "Root script: configures and runs BadNets attack on CIFAR-10. Entry point for BadNets experiments." },
+  { id: "Attack_Blended.py",   group: "entry",   size: 14, info: "Root script: configures Blended attack on ImageNet50 with alpha=0.2 trigger." },
+  { id: "Defense_ShrinkPad.py",group: "entry",   size: 14, info: "Root script: evaluates ShrinkPad defense against a pre-trained BadNets model." },
+  { id: "tests/test_*.py",     group: "entry",   size: 12, info: "30+ test/example scripts (one per attack/defense). Documentation-as-code pattern." },
+
+  // Core package
+  { id: "core/__init__.py",    group: "util",    size: 14, info: "Package root: re-exports all attacks, defenses, and models via wildcard imports." },
+
+  // Attack base
+  { id: "attacks/base.py",     group: "attack",  size: 22, info: "Base class for all attacks. Implements: train(), test(), _test(), adjust_learning_rate(), checkpoint saving, GPU multi-device setup, logging. ~410 lines." },
+
+  // Attack implementations
+  { id: "BadNets",             group: "attack",  size: 18, info: "Patch-based backdoor attack (IEEE Access 2019). Inserts a small fixed trigger pattern at a fixed position. First backdoor attack in literature." },
+  { id: "Blended",             group: "attack",  size: 14, info: "Invisible attack via blended trigger (arXiv 2017). Alpha-blends a trigger image into a fraction of training samples." },
+  { id: "WaNet",               group: "attack",  size: 14, info: "Warping-based backdoor (ICLR 2021). Uses elastic image warping as an invisible trigger." },
+  { id: "IAD",                 group: "attack",  size: 14, info: "Input-Aware Dynamic attack (NeurIPS 2020). Generates sample-specific triggers via a learned generator network." },
+  { id: "LIRA",                group: "attack",  size: 14, info: "Learnable Imperceptible Robust Attack (ICCV 2021). Optimizes trigger to be invisible and robust to fine-tuning." },
+  { id: "Blind",               group: "attack",  size: 14, info: "Blind backdoor (USENIX 2021). Targets the loss computation — first training-controlled attack." },
+  { id: "ISSBA",               group: "attack",  size: 14, info: "Invisible Sample-Specific Backdoor Attack (ICCV 2021). Uses image steganography as trigger." },
+  { id: "SleeperAgent",        group: "attack",  size: 14, info: "Scalable hidden trigger backdoor (NeurIPS 2022). Effective clean-label attack trained from scratch." },
+  { id: "PhysicalBA",          group: "attack",  size: 14, info: "Physical backdoor (ICLR Workshop 2021). Trigger survives physical-world perturbations (print-scan)." },
+  { id: "LabelConsistent",     group: "attack",  size: 14, info: "Clean-label backdoor (arXiv 2019). Label unchanged on poisoned samples — very hard to detect by data inspection." },
+  { id: "TUAP",                group: "attack",  size: 12, info: "Clean-label attack with optimized trigger (CVPR 2020). Targets video recognition models." },
+  { id: "BATT",                group: "attack",  size: 12, info: "Transformation-based trigger (ICASSP 2023). Trigger is an image transformation (rotation/scaling), invisible and physical." },
+  { id: "AdaptivePatch",       group: "attack",  size: 12, info: "Adaptive patch attack (ICLR 2023). Adversarially designed to bypass latent-space defenses." },
+  { id: "BAAT",                group: "attack",  size: 12, info: "Attribute-trigger clean-label backdoor (TDSC 2025). Most recent addition to the toolbox." },
+  { id: "Refool",              group: "attack",  size: 12, info: "Reflection backdoor (ECCV 2020). Uses natural reflection patterns as sample-specific triggers." },
+
+  // Defense base
+  { id: "defenses/base.py",    group: "defense", size: 16, info: "Minimal base class for all defenses. Provides _set_seed() only — defenses are more structurally varied than attacks." },
+
+  // Defense implementations
+  { id: "ShrinkPad",           group: "defense", size: 16, info: "Pre-processing defense (ICLR Workshop 2021). Shrinks image then pads randomly — disrupts fixed-position triggers. Efficient, no retraining needed." },
+  { id: "ABL",                 group: "defense", size: 14, info: "Anti-Backdoor Learning (NeurIPS 2021). Poison suppression via local gradient ascent + sample isolation during training." },
+  { id: "NAD",                 group: "defense", size: 14, info: "Neural Attention Distillation (ICLR 2021). Erases backdoor by distilling from a clean teacher model." },
+  { id: "SCALE_UP",            group: "defense", size: 14, info: "Black-box input-level detection (ICLR 2023). Analyzes prediction consistency under pixel scaling — no model internals needed." },
+  { id: "IBD_PSC",             group: "defense", size: 14, info: "Input-level detection via parameter scaling (ICML 2024). Theoretically grounded detection method." },
+  { id: "REFINE",              group: "defense", size: 14, info: "Model reprogramming defense (ICLR 2025). State-of-the-art pre-processing defense without trigger inversion." },
+  { id: "FLARE",               group: "defense", size: 14, info: "Universal dataset purification (TIFS 2025). Works against all-to-one, all-to-all, and untargeted attacks." },
+  { id: "FineTuning",          group: "defense", size: 12, info: "Fine-pruning defense (RAID 2018). Fine-tunes on clean data to overwrite backdoor behavior." },
+  { id: "Pruning",             group: "defense", size: 12, info: "Neuron pruning defense (RAID 2018). Removes neurons that only activate on poisoned inputs." },
+  { id: "MCR",                 group: "defense", size: 12, info: "Mode connectivity repair (ICLR 2020). Finds clean model along loss landscape path from backdoored model." },
+  { id: "AutoEncoderDefense",  group: "defense", size: 12, info: "Neural Trojans defense (ICCD 2017). First pre-processing defense — uses autoencoder to strip trigger patterns." },
+
+  // Models
+  { id: "ResNet",              group: "model",   size: 16, info: "ResNet-18/34 implementation. Primary model used in attack/defense examples." },
+  { id: "VGG",                 group: "model",   size: 12, info: "VGG-11/13/16/19 variants. Used in some defense evaluations." },
+  { id: "AutoEncoder",         group: "model",   size: 12, info: "Convolutional autoencoder. Used by AutoEncoderDefense for image reconstruction." },
+  { id: "UNet/UNetLittle",     group: "model",   size: 12, info: "UNet variants. Used by ISSBA (steganography encoder/decoder)." },
+  { id: "BaselineMNISTNet",    group: "model",   size: 10, info: "Simple CNN for MNIST classification baseline." },
+
+  // Utils
+  { id: "utils/log.py",        group: "util",    size: 12, info: "Simple Log class: writes to stdout + appends to log.txt file. Used by both attacks and defenses." },
+  { id: "utils/accuracy.py",   group: "util",    size: 11, info: "Top-k accuracy computation. Used in train loop and test evaluation." },
+  { id: "utils/test.py",       group: "util",    size: 11, info: "Standalone test helper for defenses that don't use Base.test()." },
+  { id: "utils/any2tensor.py", group: "util",    size: 10, info: "Type conversion utility: converts images/arrays to PyTorch tensors." },
+  { id: "torchattacks/pgd.py", group: "util",    size: 12, info: "PGD adversarial attack (borrowed from torchattacks). Used by LabelConsistent and SleeperAgent." },
+
+  // Datasets
+  { id: "DatasetFolder",       group: "dataset", size: 14, info: "torchvision.DatasetFolder: loads images from directory tree. Primary dataset type in BackdoorBox." },
+  { id: "CIFAR10",             group: "dataset", size: 13, info: "torchvision.CIFAR10: 60k 32x32 images, 10 classes. Most common benchmark in this codebase." },
+  { id: "MNIST",               group: "dataset", size: 11, info: "torchvision.MNIST: 70k 28x28 grayscale images, 10 classes." },
+  { id: "PoisonedDataset*",    group: "dataset", size: 14, info: "Poisoned wrappers (PoisonedDatasetFolder, PoisonedMNIST, PoisonedCIFAR10). Override __getitem__ to inject triggers into a random subset of samples." },
+];
+
+const links = [
+  // Entry points → core
+  { source: "Attack_BadNets.py", target: "core/__init__.py", type: "dependency" },
+  { source: "Attack_Blended.py", target: "core/__init__.py", type: "dependency" },
+  { source: "Defense_ShrinkPad.py", target: "core/__init__.py", type: "dependency" },
+  { source: "tests/test_*.py", target: "core/__init__.py", type: "dependency" },
+
+  // core → layers
+  { source: "core/__init__.py", target: "attacks/base.py", type: "dependency" },
+  { source: "core/__init__.py", target: "defenses/base.py", type: "dependency" },
+  { source: "core/__init__.py", target: "ResNet", type: "dependency" },
+
+  // Attacks → base
+  { source: "BadNets", target: "attacks/base.py", type: "inheritance" },
+  { source: "Blended", target: "attacks/base.py", type: "inheritance" },
+  { source: "WaNet", target: "attacks/base.py", type: "inheritance" },
+  { source: "IAD", target: "attacks/base.py", type: "inheritance" },
+  { source: "LIRA", target: "attacks/base.py", type: "inheritance" },
+  { source: "Blind", target: "attacks/base.py", type: "inheritance" },
+  { source: "ISSBA", target: "attacks/base.py", type: "inheritance" },
+  { source: "SleeperAgent", target: "attacks/base.py", type: "inheritance" },
+  { source: "PhysicalBA", target: "attacks/base.py", type: "inheritance" },
+  { source: "LabelConsistent", target: "attacks/base.py", type: "inheritance" },
+  { source: "TUAP", target: "attacks/base.py", type: "inheritance" },
+  { source: "BATT", target: "attacks/base.py", type: "inheritance" },
+  { source: "AdaptivePatch", target: "attacks/base.py", type: "inheritance" },
+  { source: "BAAT", target: "attacks/base.py", type: "inheritance" },
+  { source: "Refool", target: "attacks/base.py", type: "inheritance" },
+
+  // Defenses → base
+  { source: "ShrinkPad", target: "defenses/base.py", type: "inheritance" },
+  { source: "ABL", target: "defenses/base.py", type: "inheritance" },
+  { source: "NAD", target: "defenses/base.py", type: "inheritance" },
+  { source: "SCALE_UP", target: "defenses/base.py", type: "inheritance" },
+  { source: "IBD_PSC", target: "defenses/base.py", type: "inheritance" },
+  { source: "REFINE", target: "defenses/base.py", type: "inheritance" },
+  { source: "FLARE", target: "defenses/base.py", type: "inheritance" },
+  { source: "FineTuning", target: "defenses/base.py", type: "inheritance" },
+  { source: "Pruning", target: "defenses/base.py", type: "inheritance" },
+  { source: "MCR", target: "defenses/base.py", type: "inheritance" },
+  { source: "AutoEncoderDefense", target: "defenses/base.py", type: "inheritance" },
+
+  // BadNets creates poisoned datasets
+  { source: "BadNets", target: "PoisonedDataset*", type: "composition" },
+
+  // Base → utils
+  { source: "attacks/base.py", target: "utils/log.py", type: "dependency" },
+  { source: "attacks/base.py", target: "utils/accuracy.py", type: "dependency" },
+  { source: "attacks/base.py", target: "DatasetFolder", type: "dependency" },
+  { source: "attacks/base.py", target: "CIFAR10", type: "dependency" },
+  { source: "attacks/base.py", target: "MNIST", type: "dependency" },
+
+  // Defense utils
+  { source: "ShrinkPad", target: "utils/test.py", type: "dependency" },
+  { source: "ABL", target: "utils/log.py", type: "dependency" },
+  { source: "NAD", target: "utils/log.py", type: "dependency" },
+
+  // Model usage
+  { source: "Attack_BadNets.py", target: "ResNet", type: "composition" },
+  { source: "ISSBA", target: "UNet/UNetLittle", type: "composition" },
+  { source: "AutoEncoderDefense", target: "AutoEncoder", type: "composition" },
+
+  // Adversarial attack usage
+  { source: "LabelConsistent", target: "torchattacks/pgd.py", type: "dependency" },
+  { source: "SleeperAgent", target: "torchattacks/pgd.py", type: "dependency" },
+
+  // Poisoned datasets inherit from real ones
+  { source: "PoisonedDataset*", target: "DatasetFolder", type: "inheritance" },
+  { source: "PoisonedDataset*", target: "CIFAR10", type: "inheritance" },
+  { source: "PoisonedDataset*", target: "MNIST", type: "inheritance" },
+];
+
+const colorMap = {
+  attack:  "#EF5350",
+  defense: "#66BB6A",
+  model:   "#AB47BC",
+  util:    "#FFA726",
+  entry:   "#42A5F5",
+  dataset: "#78909C",
+};
+
+const svg = d3.select("#graph");
+const width = window.innerWidth;
+const height = window.innerHeight;
+
+const g = svg.append("g");
+
+svg.call(d3.zoom().scaleExtent([0.2, 4]).on("zoom", e => g.attr("transform", e.transform)));
+
+const sim = d3.forceSimulation(nodes)
+  .force("link", d3.forceLink(links).id(d => d.id).distance(d => d.type === "inheritance" ? 90 : 130).strength(0.5))
+  .force("charge", d3.forceManyBody().strength(-320))
+  .force("center", d3.forceCenter(width / 2, height / 2))
+  .force("collision", d3.forceCollide().radius(d => d.size + 14));
+
+const link = g.append("g").selectAll("line")
+  .data(links).join("line")
+  .attr("class", d => `link ${d.type}`)
+  .attr("stroke-width", d => d.type === "inheritance" ? 2 : 1);
+
+const node = g.append("g").selectAll(".node")
+  .data(nodes).join("g")
+  .attr("class", "node")
+  .call(d3.drag()
+    .on("start", (e, d) => { if (!e.active) sim.alphaTarget(0.3).restart(); d.fx = d.x; d.fy = d.y; })
+    .on("drag",  (e, d) => { d.fx = e.x; d.fy = e.y; })
+    .on("end",   (e, d) => { if (!e.active) sim.alphaTarget(0); d.fx = null; d.fy = null; })
+  );
+
+node.append("circle")
+  .attr("r", d => d.size)
+  .attr("fill", d => colorMap[d.group] + "33")
+  .attr("stroke", d => colorMap[d.group]);
+
+let labelsVisible = true;
+const labels = node.append("text")
+  .text(d => d.id.length > 18 ? d.id.slice(0, 16) + "…" : d.id)
+  .attr("dy", d => d.size + 13)
+  .style("font-size", d => d.size > 14 ? "11px" : "10px");
+
+const tooltip = d3.select("#tooltip");
+node.on("mouseover", (e, d) => {
+  tooltip.style("opacity", 1)
+    .html(`<strong style="color:${colorMap[d.group]}">${d.id}</strong><br>${d.info}`);
+}).on("mousemove", e => {
+  tooltip.style("left", (e.pageX + 12) + "px").style("top", (e.pageY - 10) + "px");
+}).on("mouseout", () => tooltip.style("opacity", 0));
+
+sim.on("tick", () => {
+  link.attr("x1", d => d.source.x).attr("y1", d => d.source.y)
+      .attr("x2", d => d.target.x).attr("y2", d => d.target.y);
+  node.attr("transform", d => `translate(${d.x},${d.y})`);
+});
+
+function resetZoom() {
+  svg.transition().duration(600).call(
+    d3.zoom().scaleExtent([0.2, 4]).on("zoom", e => g.attr("transform", e.transform)).transform,
+    d3.zoomIdentity.translate(width/2, height/2).scale(0.85).translate(-width/2, -height/2)
+  );
+}
+
+function toggleLabels() {
+  labelsVisible = !labelsVisible;
+  labels.style("display", labelsVisible ? null : "none");
+}
+</script>
+</body>
+</html>
